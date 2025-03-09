@@ -85,6 +85,10 @@ echo "Installing build essentials and development libraries..."
 apt_install python3-dev python3-pip python3-venv
 apt_install espeak
 
+# Install SDL libraries for pygame
+echo "Installing SDL libraries for audio playback..."
+apt_install libsdl2-dev libsdl2-mixer-2.0-0
+
 # Set up Python virtual environment
 print_header "Setting up Python virtual environment"
 
@@ -114,7 +118,7 @@ fi
 
 # Upgrade pip
 echo "Upgrading pip..."
-pip install --upgrade pip
+pip install --upgrade pip setuptools wheel
 
 # Install Python dependencies
 print_header "Installing Python dependencies"
