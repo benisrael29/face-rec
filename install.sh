@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Face Recognition Application Installation Script for Xubuntu
-# -------------------------------------------------------------
+# Face Detection Application Installation Script for Xubuntu
+# ---------------------------------------------------------
 
 # Text formatting
 BOLD="\e[1m"
@@ -38,7 +38,7 @@ if [[ "$(uname)" != "Linux" ]]; then
     exit 1
 fi
 
-print_header "Face Recognition Application - Installation Script"
+print_header "Face Detection Application - Installation Script"
 echo "This script will install the necessary dependencies and set up the application."
 
 # Check for sudo privileges
@@ -82,12 +82,8 @@ fi
 
 # Install essential build dependencies
 echo "Installing build essentials and development libraries..."
-apt_install python3-dev python3-pip python3-venv cmake build-essential
-apt_install libx11-dev libatlas-base-dev libgtk-3-dev libboost-python-dev
-
-# Install audio dependencies
-echo "Installing audio dependencies..."
-apt_install espeak portaudio19-dev python3-pyaudio
+apt_install python3-dev python3-pip python3-venv
+apt_install espeak
 
 # Set up Python virtual environment
 print_header "Setting up Python virtual environment"
@@ -120,13 +116,9 @@ fi
 echo "Upgrading pip..."
 pip install --upgrade pip
 
-# Install wheel for binary packages
-echo "Installing wheel..."
-pip install wheel
-
 # Install Python dependencies
 print_header "Installing Python dependencies"
-echo "This may take some time, especially for dlib and face-recognition..."
+echo "This may take some time for OpenCV..."
 
 if pip install -r requirements.txt; then
     print_success "Python dependencies installed successfully."
@@ -139,14 +131,14 @@ fi
 print_header "Setting up application directories"
 
 # Create directories
-mkdir -p logs data/trained_faces data/face_images
+mkdir -p logs data/audio
 
 # Set proper permissions
 chmod -R 755 logs data
 print_success "Directory structure created."
 
 # Make Python scripts executable
-chmod +x main.py face_trainer.py setup.py
+chmod +x main.py
 print_success "Made Python scripts executable."
 
 # Add camera and audio group permissions
@@ -174,12 +166,9 @@ echo ""
 echo "2. Activate the virtual environment:"
 echo "   $ source venv/bin/activate"
 echo ""
-echo "3. Train the system to recognize faces (optional):"
-echo "   $ python face_trainer.py"
-echo ""
-echo "4. Run the face recognition application:"
+echo "3. Run the face detection application:"
 echo "   $ python main.py"
 echo ""
-print_warning "Note: The first run might be slow as face recognition models are loaded."
+print_warning "Note: The first run might be slow as OpenCV initializes."
 
 exit 0 

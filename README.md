@@ -21,23 +21,58 @@ A Python application that performs real-time face recognition using your webcam,
 
 ## Installation
 
-### 1. Install system dependencies
+### Automatic Installation (Recommended)
+
+The easiest way to install is using the provided installation script which automates the entire process:
+
+```bash
+# Make the script executable
+chmod +x install.sh
+
+# Run the installation script
+./install.sh
+```
+
+The script will:
+- Check if you're running on a Linux system
+- Install all necessary system dependencies
+- Create a Python virtual environment
+- Install Python package dependencies
+- Set up required directories
+- Configure user permissions for camera and audio
+- Provide instructions for running the application
+
+### Manual Installation
+
+If you prefer to install manually, follow these steps:
+
+#### 1. Install system dependencies
 
 ```bash
 sudo apt update
-sudo apt install -y python3-pip python3-dev cmake build-essential libcairo2-dev libgirepository1.0-dev
-sudo apt install -y portaudio19-dev python3-pyaudio
+sudo apt install -y python3-dev python3-pip python3-venv cmake build-essential
+sudo apt install -y libx11-dev libatlas-base-dev libgtk-3-dev libboost-python-dev
+sudo apt install -y espeak portaudio19-dev python3-pyaudio
+# For newer Python versions (3.12+)
+sudo apt install -y python3-setuptools python3-distutils
 ```
 
-### 2. Install Python dependencies
+#### 2. Set up a virtual environment
 
 ```bash
-pip3 install -r requirements.txt
+python3 -m venv venv
+source venv/bin/activate
 ```
 
-### 3. Ensure camera and audio permissions
+#### 3. Install Python dependencies
 
-Make sure your user has permissions to access the webcam and audio devices:
+```bash
+pip install --upgrade pip
+pip install setuptools wheel
+pip install -r requirements.txt
+```
+
+#### 4. Ensure camera and audio permissions
 
 ```bash
 sudo usermod -a -G video $USER
@@ -46,53 +81,63 @@ sudo usermod -a -G audio $USER
 
 You may need to log out and log back in for these changes to take effect.
 
-### 4. Run the setup script
-
-The setup script will create the necessary directories and verify that your system meets the requirements:
+#### 5. Create necessary directories
 
 ```bash
-python3 setup.py
+mkdir -p logs data/trained_faces data/face_images
 ```
 
 ## Usage
 
 ### Face Recognition Application
 
-1. Run the main application:
+1. Activate the virtual environment (if you're using one):
 
 ```bash
-python3 main.py
+source venv/bin/activate
 ```
 
-2. The application will open a window showing the camera feed with face detection.
+2. Run the main application:
 
-3. When a face is detected:
+```bash
+python main.py
+```
+
+3. The application will open a window showing the camera feed with face detection.
+
+4. When a face is detected:
    - A green rectangle will be drawn around the face
    - An audio greeting will be played
    - The detection will be logged to the `logs` directory
    - If the face is recognized, it will be greeted by name
 
-4. To exit the application, press 'q' while the window is in focus.
+5. To exit the application, press 'q' while the window is in focus.
 
 ### Face Training Utility
 
 To train the system to recognize specific faces:
 
-1. Run the face trainer:
+1. Activate the virtual environment (if you're using one):
 
 ```bash
-python3 face_trainer.py
+source venv/bin/activate
 ```
 
-2. Choose option 1 to add a new face.
+2. Run the face trainer:
 
-3. Enter the person's name when prompted.
+```bash
+python face_trainer.py
+```
 
-4. Position your face in front of the camera and press the spacebar to capture samples.
+3. Choose option 1 to add a new face.
+
+4. Enter the person's name when prompted.
+
+5. Position your face in front of the camera and press the spacebar to capture samples.
    - The system will take 5 samples of your face from different angles
    - You'll need to press the spacebar for each sample
 
-5. Once training is complete, run the main application to see the recognition in action.
+6. Once training is complete, run the main application to see the recognition in action.
 
 ## Project Structure
 
@@ -101,7 +146,9 @@ face-rec/
 ├── main.py              # Main face recognition application
 ├── face_trainer.py      # Utility to train the system on new faces
 ├── setup.py             # Setup script to initialize directories
+├── install.sh           # Installation script for Xubuntu
 ├── requirements.txt     # Python dependencies
+├── venv/                # Virtual environment (created during installation)
 ├── logs/                # Log files of face detections
 └── data/
     ├── trained_faces/   # Saved face encodings
@@ -122,7 +169,7 @@ If the camera fails to open:
 If audio greetings are not playing:
 - Check your system volume settings
 - Ensure audio output device is properly connected
-- Run `python3 -m pyttsx3` to test the text-to-speech engine
+- Run `python -m pyttsx3` to test the text-to-speech engine
 
 ### Face detection performance issues
 
@@ -137,6 +184,32 @@ If faces are not being recognized correctly:
 - Try retraining with better lighting conditions
 - Capture faces from different angles
 - Adjust the recognition tolerance in the code (default is 0.6)
+
+### Installation issues
+
+If you encounter problems during installation:
+- Make sure you have a stable internet connection
+- Try installing system dependencies manually
+- Check for error messages in the terminal
+- Ensure you have sufficient disk space
+
+#### "No module named 'distutils'" error
+
+If you see an error about distutils when installing packages:
+
+1. Install the distutils package at the system level:
+   ```bash
+   sudo apt install python3-setuptools python3-distutils
+   ```
+
+2. Then install setuptools inside your virtual environment:
+   ```bash
+   pip install setuptools
+   ```
+
+3. Continue with the regular installation process
+
+This issue usually happens with newer Python versions (3.12+) where distutils is no longer included in the standard library.
 
 ## License
 
