@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Face Recognition Application
+Face Detection Application
 ----------------------------
 This application captures video from a camera, performs face detection,
 logs when faces are detected, and greets detected people via audio.
@@ -13,8 +13,8 @@ import logging
 import datetime
 import subprocess
 import numpy as np
+import pygame
 from pathlib import Path
-from playsound import playsound
 
 # Configure logging
 os.makedirs('logs', exist_ok=True)
@@ -30,6 +30,9 @@ logger = logging.getLogger(__name__)
 
 # Ensure the sounds directory exists and create the audio folder if it doesn't
 os.makedirs('data/audio', exist_ok=True)
+
+# Initialize pygame mixer for audio
+pygame.mixer.init()
 
 class FaceDetectionApp:
     def __init__(self):
@@ -53,16 +56,22 @@ class FaceDetectionApp:
         self.greeting_cooldown = 10  # seconds between greetings for the same face
         
         # Create greeting sound file if it doesn't exist
-        self.greeting_sound = "data/audio/hello.mp3"
+        self.greeting_sound = "data/audio/hello.wav"
         if not os.path.exists(self.greeting_sound):
             self._create_greeting_sound()
+        
+        # Load the greeting sound
+        try:
+            pygame.mixer.music.load(self.greeting_sound)
+        except Exception as e:
+            logger.error(f"Failed to load greeting sound: {str(e)}")
         
         logger.info("Face Detection App initialized")
     
     def _create_greeting_sound(self):
         """Create a greeting sound file using espeak (if available)"""
         try:
-            # Use espeak to create an audio file
+            # Use espeak to create an audio file (WAV format for better compatibility)
             subprocess.run(
                 ["espeak", "-w", self.greeting_sound, "Hello there!"],
                 stdout=subprocess.PIPE,
@@ -78,8 +87,10 @@ class FaceDetectionApp:
     def speak(self):
         """Play the greeting sound"""
         try:
-            playsound(self.greeting_sound, block=False)
-            logger.info("Played greeting sound")
+            # Check if music is currently playing
+            if not pygame.mixer.music.get_busy():
+                pygame.mixer.music.play()
+                logger.info("Played greeting sound")
         except Exception as e:
             logger.error(f"Failed to play sound: {str(e)}")
     
@@ -153,6 +164,7 @@ class FaceDetectionApp:
             # Release resources
             self.camera.release()
             cv2.destroyAllWindows()
+            pygame.mixer.quit()
             logger.info("Application terminated")
 
 if __name__ == "__main__":
