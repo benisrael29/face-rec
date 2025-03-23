@@ -144,7 +144,7 @@ def record_custom_greeting():
     print("Please speak clearly after the countdown.")
     print("Recording will automatically stop after 3 seconds.")
     
-    # Check if pyaudio is installed in virtual environment
+    # Check if sounddevice and soundfile are installed in virtual environment
     python_path = get_venv_python()
     
     try:
@@ -152,18 +152,13 @@ def record_custom_greeting():
         temp_script_path = "temp_record.py"
         with open(temp_script_path, "w") as f:
             f.write("""
-import pyaudio
-import wave
+import sounddevice as sd
+import soundfile as sf
+import numpy as np
 import os
 import time
 
-def record_audio(output_file, seconds=3, rate=44100):
-    CHUNK = 1024
-    FORMAT = pyaudio.paInt16
-    CHANNELS = 1
-    
-    p = pyaudio.PyAudio()
-    
+def record_audio(output_file, seconds=3, samplerate=44100):
     print("\\nRecording will begin in:")
     for i in range(3, 0, -1):
         print(f"{i}...")
@@ -171,34 +166,17 @@ def record_audio(output_file, seconds=3, rate=44100):
     
     print("Recording... Speak now!")
     
-    stream = p.open(format=FORMAT,
-                    channels=CHANNELS,
-                    rate=rate,
-                    input=True,
-                    frames_per_buffer=CHUNK)
-    
-    frames = []
-    
-    for i in range(0, int(rate / CHUNK * seconds)):
-        data = stream.read(CHUNK)
-        frames.append(data)
+    # Record audio
+    recording = sd.rec(int(seconds * samplerate), samplerate=samplerate, channels=1, dtype='float32')
+    sd.wait()  # Wait until recording is finished
     
     print("Recording finished!")
-    
-    stream.stop_stream()
-    stream.close()
-    p.terminate()
     
     # Make sure directory exists
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
     
-    # Save recording
-    wf = wave.open(output_file, 'wb')
-    wf.setnchannels(CHANNELS)
-    wf.setsampwidth(p.get_sample_size(FORMAT))
-    wf.setframerate(rate)
-    wf.writeframes(b''.join(frames))
-    wf.close()
+    # Save as WAV file
+    sf.write(output_file, recording, samplerate)
     
     print(f"Audio saved to {output_file}")
     return True
@@ -236,7 +214,7 @@ def run_application():
     
     # Run the application
     try:
-        subprocess.run([python_path, "main.py"])
+        subprocess.run([python_path, "main.py", "--custom-greeting"])
         return True
     except Exception as e:
         print_error(f"Failed to run application: {e}")

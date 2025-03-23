@@ -53,7 +53,7 @@ sudo apt update
 sudo apt install -y python3-dev python3-pip python3-venv
 sudo apt install -y espeak
 sudo apt install -y libsdl2-dev libsdl2-mixer-2.0-0
-sudo apt install -y portaudio19-dev  # Required for PyAudio
+sudo apt install -y libsndfile1-dev  # Required for audio recording
 ```
 
 #### 2. Set up a virtual environment
@@ -204,7 +204,7 @@ face-rec/
 This application uses:
 - OpenCV's Haar cascade classifiers for face detection
 - The espeak software for text-to-speech conversion (for language greetings)
-- PyAudio for recording your custom voice greeting
+- sounddevice and soundfile for recording your custom voice greeting
 - Pygame for audio playback
 - All packages are compatible with Python 3.12
 
@@ -216,7 +216,8 @@ These technologies were chosen for their simplicity, reliability, and compatibil
 - **numpy (1.26.2)**: For numerical operations
 - **pygame (2.5.2)**: For audio playback
 - **python-dateutil (2.8.2)**: For date handling
-- **pyaudio (0.2.13)**: For recording voice
+- **sounddevice (0.4.6)**: For audio recording
+- **soundfile (0.12.1)**: For saving audio recordings
 
 ## Troubleshooting
 
@@ -253,12 +254,16 @@ If audio greetings are not playing:
 
 If you can't record your voice during setup:
 - Check if your microphone is properly connected and enabled
-- Install PortAudio development libraries:
+- Install required dependencies:
   ```bash
-  sudo apt install portaudio19-dev
+  sudo apt install libsndfile1-dev
   ```
 - Verify your user has permission to access audio devices
 - Try testing your microphone with another application
+- Run a quick test with sounddevice:
+  ```python
+  python -c "import sounddevice as sd; print(sd.query_devices())"
+  ```
 
 ### Face detection performance issues
 

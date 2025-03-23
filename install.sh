@@ -89,9 +89,9 @@ apt_install espeak
 echo "Installing SDL libraries for audio playback..."
 apt_install libsdl2-dev libsdl2-mixer-2.0-0
 
-# Install PortAudio for PyAudio (voice recording)
-echo "Installing PortAudio for voice recording..."
-apt_install portaudio19-dev
+# Install libraries for sounddevice and soundfile
+echo "Installing libraries for audio recording..."
+apt_install libsndfile1-dev
 
 # Set up Python virtual environment
 print_header "Setting up Python virtual environment"
