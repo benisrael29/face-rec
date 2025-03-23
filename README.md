@@ -6,6 +6,7 @@ A lightweight Python application that performs real-time face detection using yo
 
 - Real-time face detection using OpenCV
 - Audio greeting when a face is detected
+- Customizable voice greeting using your own recorded voice
 - Logging of all face detections to file
 - Cooldown system to prevent repeated greetings
 - Simple visualization with bounding boxes
@@ -16,6 +17,7 @@ A lightweight Python application that performs real-time face detection using yo
 - Python 3.6+ (including Python 3.12)
 - Webcam or camera
 - Audio output capability
+- Microphone (for custom voice recording)
 
 ## Installation
 
@@ -51,6 +53,7 @@ sudo apt update
 sudo apt install -y python3-dev python3-pip python3-venv
 sudo apt install -y espeak
 sudo apt install -y libsdl2-dev libsdl2-mixer-2.0-0
+sudo apt install -y portaudio19-dev  # Required for PyAudio
 ```
 
 #### 2. Set up a virtual environment
@@ -79,7 +82,7 @@ You may need to log out and log back in for these changes to take effect.
 #### 5. Create necessary directories
 
 ```bash
-mkdir -p logs data/audio
+mkdir -p logs data/audio data/custom
 ```
 
 ## Usage
@@ -90,24 +93,45 @@ mkdir -p logs data/audio
 source venv/bin/activate
 ```
 
-2. Run the application:
+2. Run the setup script (which includes recording your custom greeting):
+
+```bash
+python setup.py
+```
+
+3. Or run the application directly:
 
 ```bash
 python main.py
 ```
 
-3. The application will open a window showing the camera feed with face detection.
+4. The application will open a window showing the camera feed with face detection.
 
-4. When a face is detected:
+5. When a face is detected:
    - A green rectangle will be drawn around the face
-   - An audio greeting will be played
+   - An audio greeting will be played (either your custom voice or a random language)
    - The detection will be logged to the `logs` directory
 
-5. To exit the application, press 'q' while the window is in focus.
+6. To exit the application, press 'q' while the window is in focus.
+
+### Custom Voice Greeting
+
+The application now supports using your own voice as the greeting:
+
+```bash
+# Record your voice during setup
+python setup.py
+
+# Run the app with your custom greeting
+python main.py --custom-greeting
+```
+
+When you run the setup script, you'll be prompted to record a short greeting (3 seconds). 
+This greeting will be saved and can be used when running the application with the `--custom-greeting` flag.
 
 ### Using with Specific Camera Devices
 
-The application now supports specifying which camera to use:
+The application supports specifying which camera to use:
 
 ```bash
 # List all available cameras
@@ -118,6 +142,9 @@ python main.py --camera=1
 
 # Or use a specific camera by device path
 python main.py --camera=/dev/video0
+
+# Use a specific camera with your custom greeting
+python main.py --camera=1 --custom-greeting
 ```
 
 ## MacBook Camera Setup
@@ -161,20 +188,23 @@ python main.py --camera=/dev/video1
 ```
 face-rec/
 ├── main.py                # Main face detection application
+├── setup.py               # Setup script with voice recording
 ├── install.sh             # Installation script for Xubuntu
 ├── fix_macbook_camera.sh  # MacBook camera fix script
 ├── requirements.txt       # Python dependencies
 ├── venv/                  # Virtual environment (created during installation)
 ├── logs/                  # Log files of face detections
 └── data/
-    └── audio/             # Audio files for greetings
+    ├── audio/             # Audio files for language greetings
+    └── custom/            # Custom voice recordings
 ```
 
 ## Technical Details
 
 This application uses:
 - OpenCV's Haar cascade classifiers for face detection
-- The espeak software for text-to-speech conversion (to create the greeting sound)
+- The espeak software for text-to-speech conversion (for language greetings)
+- PyAudio for recording your custom voice greeting
 - Pygame for audio playback
 - All packages are compatible with Python 3.12
 
@@ -186,6 +216,7 @@ These technologies were chosen for their simplicity, reliability, and compatibil
 - **numpy (1.26.2)**: For numerical operations
 - **pygame (2.5.2)**: For audio playback
 - **python-dateutil (2.8.2)**: For date handling
+- **pyaudio (0.2.13)**: For recording voice
 
 ## Troubleshooting
 
@@ -217,6 +248,17 @@ If audio greetings are not playing:
   ```bash
   sudo apt install espeak libsdl2-dev libsdl2-mixer-2.0-0
   ```
+
+### Microphone not working
+
+If you can't record your voice during setup:
+- Check if your microphone is properly connected and enabled
+- Install PortAudio development libraries:
+  ```bash
+  sudo apt install portaudio19-dev
+  ```
+- Verify your user has permission to access audio devices
+- Try testing your microphone with another application
 
 ### Face detection performance issues
 

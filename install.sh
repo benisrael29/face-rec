@@ -89,6 +89,10 @@ apt_install espeak
 echo "Installing SDL libraries for audio playback..."
 apt_install libsdl2-dev libsdl2-mixer-2.0-0
 
+# Install PortAudio for PyAudio (voice recording)
+echo "Installing PortAudio for voice recording..."
+apt_install portaudio19-dev
+
 # Set up Python virtual environment
 print_header "Setting up Python virtual environment"
 
@@ -135,7 +139,7 @@ fi
 print_header "Setting up application directories"
 
 # Create directories
-mkdir -p logs data/audio
+mkdir -p logs data/audio data/custom
 
 # Set proper permissions
 chmod -R 755 logs data
@@ -170,8 +174,14 @@ echo ""
 echo "2. Activate the virtual environment:"
 echo "   $ source venv/bin/activate"
 echo ""
-echo "3. Run the face detection application:"
+echo "3. Run the setup script to configure your custom voice greeting:"
+echo "   $ python setup.py"
+echo ""
+echo "4. Or run the face detection application directly:"
 echo "   $ python main.py"
+echo ""
+echo "5. To use your custom voice greeting with the application:"
+echo "   $ python main.py --custom-greeting"
 echo ""
 print_warning "Note: The first run might be slow as OpenCV initializes."
 
