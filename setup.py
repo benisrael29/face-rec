@@ -142,7 +142,7 @@ def record_custom_greeting():
     
     print("You will be prompted to record your voice as a custom greeting.")
     print("Please speak clearly after the countdown.")
-    print("Recording will automatically stop after 3 seconds.")
+    print("Recording will automatically stop after 5 seconds.")
     
     # Check if sounddevice and soundfile are installed in virtual environment
     python_path = get_venv_python()
@@ -158,7 +158,7 @@ import numpy as np
 import os
 import time
 
-def record_audio(output_file, seconds=3, samplerate=44100):
+def record_audio(output_file, seconds=5, samplerate=44100):
     print("\\nRecording will begin in:")
     for i in range(3, 0, -1):
         print(f"{i}...")
