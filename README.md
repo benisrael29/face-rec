@@ -8,6 +8,7 @@ A lightweight Python application that performs real-time face detection using yo
 - Persistent face tracking that maintains face identity even with movement
 - Audio greeting when a face is detected
 - Sequential greetings that play different messages on each encounter with the same face
+- Automatic photo capture of each detected face with universal read permissions
 - Customizable voice greeting using your own recorded voice
 - Individual face greeting counter that tracks each detected face separately
 - Daily total greeting counter with persistent storage
@@ -86,7 +87,7 @@ You may need to log out and log back in for these changes to take effect.
 #### 5. Create necessary directories
 
 ```bash
-mkdir -p logs data/audio data/custom data/stats
+mkdir -p logs data/audio data/custom data/stats data/photos
 ```
 
 ## Usage
@@ -117,6 +118,7 @@ python main.py
    - The individual face greeting counter is incremented and displayed below the face
    - The total daily greeting count is incremented
    - The detection will be logged to the `logs` directory
+   - A photo of the face will be saved to the `data/photos` directory
 
 6. To exit the application, press 'q' while the window is in focus.
 
@@ -139,6 +141,26 @@ The application keeps track of how many times each individual face has been gree
 - All counters automatically reset at midnight
 - Data persists between application restarts (stored in data/stats directory)
 - Individual face counts and total count are stored in JSON format for each day (e.g., `stats_20230415.json`)
+
+### Face Photo Capture
+
+The application automatically saves a photo of each detected face:
+
+- When a new face is detected, a cropped photo of the face is saved
+- Photos are saved in the `data/photos` directory with permissions that allow anyone to view them
+- File permissions are set to 644 (rw-r--r--) so any user can open and view the images
+- Directory permissions are set to 755 (rwxr-xr-x) so any user can access the photos directory
+- Filenames include the face ID and timestamp (e.g., `face_1_20230415_120530.jpg`)
+- Photos can be used for reviewing who was detected or for creating a face database
+
+These photos can be useful for:
+- Keeping a record of who was detected
+- Troubleshooting face detection issues
+- Creating your own face recognition dataset
+- Security and monitoring purposes
+- Sharing detection data with other users on the system
+
+The photos are cropped around the face with a small margin to focus on the person while maintaining privacy by not storing the entire scene.
 
 ### Sequential Greetings
 
@@ -249,6 +271,7 @@ face-rec/
 └── data/
     ├── audio/             # Audio files for language greetings
     ├── custom/            # Custom voice recordings
+    ├── photos/            # Saved face photos
     └── stats/             # Daily face greeting statistics
 ```
 

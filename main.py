@@ -46,11 +46,16 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Ensure the sounds directory exists and create the audio folder if it doesn't
+# Ensure the sounds directory exists and create required folders if they don't exist
 os.makedirs('data/audio', exist_ok=True)
 os.makedirs('data/custom', exist_ok=True)
 os.makedirs('data/stats', exist_ok=True)  # Directory for tracking statistics
-os.makedirs('data/photos', exist_ok=True)
+
+# Create photos directory with appropriate permissions
+photos_dir = 'data/photos'
+os.makedirs(photos_dir, exist_ok=True)
+# Set directory permissions to 755 (rwxr-xr-x) - Owner can read/write/execute, others can read/execute
+os.chmod(photos_dir, 0o755)
 
 # Initialize pygame mixer for audio
 pygame.mixer.init()
@@ -499,6 +504,9 @@ class FaceDetectionApp:
             
             # Save the face image
             cv2.imwrite(filename, face_img)
+            
+            # Set file permissions to be readable by anyone (0o644 = rw-r--r--)
+            os.chmod(filename, 0o644)
             
             # Add to set of saved faces
             self.saved_face_photos.add(face.id)
