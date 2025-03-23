@@ -66,6 +66,17 @@ GREETINGS = {
     'Hebrew': 'Shalom'
 }
 
+# Voice parameters for more natural sound
+VOICE_PARAMS = {
+    'default': '-s 130 -p 50 -a 100',  # Standard voice
+    'English': '-v en -s 130 -p 50 -a 100',
+    'Spanish': '-v es -s 130 -p 50 -a 100',
+    'French': '-v fr -s 130 -p 50 -a 100',
+    'German': '-v de -s 130 -p 50 -a 100',
+    'Italian': '-v it -s 130 -p 50 -a 100'
+    # Other languages use default voice
+}
+
 class FaceDetectionApp:
     def __init__(self, camera_source=None):
         # Initialize the camera
@@ -86,6 +97,10 @@ class FaceDetectionApp:
         # For tracking faces we've already greeted
         self.last_greeting_time = {}
         self.greeting_cooldown = 10  # seconds between greetings for the same face
+        
+        # Global cooldown to prevent rapid greetings for different faces
+        self.last_global_greeting_time = 0
+        self.global_greeting_cooldown = 3  # seconds between any greetings
         
         # List of available greeting sounds
         self.greeting_sounds = {}
@@ -192,9 +207,14 @@ class FaceDetectionApp:
                 continue
                 
             try:
-                # Use espeak to create an audio file
+                # Get voice parameters for this language or use default
+                voice_params = VOICE_PARAMS.get(language, VOICE_PARAMS['default'])
+                
+                # Use espeak to create an audio file with better parameters for more natural voice
+                cmd = f"espeak {voice_params} -w {sound_file} \"{greeting}\""
                 subprocess.run(
-                    ["espeak", "-w", sound_file, greeting],
+                    cmd,
+                    shell=True,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                     check=True
@@ -218,6 +238,8 @@ class FaceDetectionApp:
                 pygame.mixer.music.load(greeting_file)
                 pygame.mixer.music.play()
                 logger.info(f"Played greeting in {self.current_language}: {GREETINGS[self.current_language]}")
+                # Update the last global greeting time
+                self.last_global_greeting_time = time.time()
         except Exception as e:
             logger.error(f"Failed to play sound: {str(e)}")
     
@@ -238,9 +260,17 @@ class FaceDetectionApp:
         if len(faces) == 0:
             return frame
         
-        # Log and greet for each detected face
+        # Get current time for cooldown checks
         current_time = time.time()
         
+        # Check global cooldown
+        global_cooldown_active = (current_time - self.last_global_greeting_time) < self.global_greeting_cooldown
+        if global_cooldown_active:
+            # Add a small indicator that cooldown is active
+            cv2.putText(frame, "Cooldown active", (10, 30), 
+                      cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+        
+        # Process detected faces
         for (x, y, w, h) in faces:
             # Draw a rectangle around the face
             cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
@@ -251,17 +281,26 @@ class FaceDetectionApp:
             # Log the detection
             logger.info(f"Face detected at coordinates: x={x}, y={y}, width={w}, height={h}")
             
-            # Check if we should greet this face (based on cooldown)
-            if face_id not in self.last_greeting_time or \
-               (current_time - self.last_greeting_time[face_id]) > self.greeting_cooldown:
+            # Show time remaining in cooldown if applicable
+            if face_id in self.last_greeting_time:
+                time_since_greeting = current_time - self.last_greeting_time[face_id]
+                if time_since_greeting < self.greeting_cooldown:
+                    cooldown_remaining = round(self.greeting_cooldown - time_since_greeting)
+                    cv2.putText(frame, f"Cooldown: {cooldown_remaining}s", (x, y+h+20), 
+                              cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
+            
+            # Check if we should greet this face (based on both face-specific and global cooldowns)
+            face_cooldown_passed = face_id not in self.last_greeting_time or \
+                (current_time - self.last_greeting_time[face_id]) > self.greeting_cooldown
                 
+            if face_cooldown_passed and not global_cooldown_active:
                 self.speak()
                 self.last_greeting_time[face_id] = current_time
                 
                 # Display the greeting text on the frame
                 greeting_text = f"{GREETINGS[self.current_language]} ({self.current_language})"
                 cv2.putText(frame, greeting_text, (x, y-10), 
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
                 
                 logger.info(f"Greeting sent in {self.current_language} for detected face")
         
@@ -296,6 +335,10 @@ class FaceDetectionApp:
                 
                 # Process the frame (detect faces, log, and potentially speak)
                 processed_frame = self.process_frame(frame)
+                
+                # Add instructions to the frame
+                cv2.putText(processed_frame, "Press 'q' to quit", (10, frame.shape[0] - 10),
+                          cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
                 
                 # Display the resulting frame
                 cv2.imshow('Face Detection', processed_frame)
