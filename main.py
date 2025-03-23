@@ -50,6 +50,7 @@ logger = logging.getLogger(__name__)
 os.makedirs('data/audio', exist_ok=True)
 os.makedirs('data/custom', exist_ok=True)
 os.makedirs('data/stats', exist_ok=True)  # Directory for tracking statistics
+os.makedirs('data/photos', exist_ok=True)
 
 # Initialize pygame mixer for audio
 pygame.mixer.init()
@@ -149,6 +150,7 @@ class FaceDetectionApp:
         self.tracked_faces = []
         self.max_missing_frames = 10  # Frames before considering a face gone
         self.same_face_threshold = 100  # Maximum distance to consider it the same face
+        self.saved_face_photos = set()  # Keep track of faces we've saved photos for
         
         # Greeting cooldown
         self.greeting_cooldown = 10  # seconds between greetings for the same face
@@ -442,7 +444,7 @@ class FaceDetectionApp:
         
         return False
     
-    def update_tracked_faces(self, detected_faces):
+    def update_tracked_faces(self, detected_faces, frame):
         """Update the list of tracked faces based on new detections"""
         # Increment missing frames count for all current faces
         for face in self.tracked_faces:
@@ -468,10 +470,42 @@ class FaceDetectionApp:
             
             # If no match found, add as a new face
             if not matched:
-                self.tracked_faces.append(TrackedFace(x, y, w, h))
+                new_face = TrackedFace(x, y, w, h)
+                self.tracked_faces.append(new_face)
+                
+                # Save a photo of the new face
+                self.save_face_photo(frame, new_face)
         
         # Remove faces that haven't been seen for a while
         self.tracked_faces = [face for face in self.tracked_faces if face.frames_missing < self.max_missing_frames]
+    
+    def save_face_photo(self, frame, face):
+        """Save a photo of the detected face"""
+        try:
+            # Create a timestamp for the filename
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            
+            # Create the filename with face ID
+            filename = f"data/photos/{face.id}_{timestamp}.jpg"
+            
+            # Extract the face region with some margin
+            margin = 20  # pixels of margin around the face
+            y1 = max(0, face.y - margin)
+            y2 = min(frame.shape[0], face.y + face.h + margin)
+            x1 = max(0, face.x - margin)
+            x2 = min(frame.shape[1], face.x + face.w + margin)
+            
+            face_img = frame[y1:y2, x1:x2]
+            
+            # Save the face image
+            cv2.imwrite(filename, face_img)
+            
+            # Add to set of saved faces
+            self.saved_face_photos.add(face.id)
+            
+            logger.info(f"Saved photo of face {face.id} to {filename}")
+        except Exception as e:
+            logger.error(f"Failed to save face photo: {str(e)}")
     
     def process_frame(self, frame):
         """Process a single frame for face detection"""
@@ -491,7 +525,7 @@ class FaceDetectionApp:
             return frame
         
         # Update tracked faces based on new detections
-        self.update_tracked_faces(faces)
+        self.update_tracked_faces(faces, frame)
         
         # Get current time for cooldown checks
         current_time = time.time()
