@@ -7,7 +7,8 @@ A lightweight Python application that performs real-time face detection using yo
 - Real-time face detection using OpenCV
 - Audio greeting when a face is detected
 - Customizable voice greeting using your own recorded voice
-- Daily face greeting counter with persistent storage
+- Individual face greeting counter that tracks each detected face separately
+- Daily total greeting counter with persistent storage
 - Logging of all face detections to file
 - Cooldown system to prevent repeated greetings
 - Simple visualization with bounding boxes
@@ -83,7 +84,7 @@ You may need to log out and log back in for these changes to take effect.
 #### 5. Create necessary directories
 
 ```bash
-mkdir -p logs data/audio data/custom
+mkdir -p logs data/audio data/custom data/stats
 ```
 
 ## Usage
@@ -111,9 +112,23 @@ python main.py
 5. When a face is detected:
    - A green rectangle will be drawn around the face
    - An audio greeting will be played (either your custom voice or a random language)
+   - The individual face greeting counter is incremented and displayed below the face
+   - The total daily greeting count is incremented
    - The detection will be logged to the `logs` directory
 
 6. To exit the application, press 'q' while the window is in focus.
+
+### Face Greeting Counter
+
+The application keeps track of how many times each individual face has been greeted:
+
+- Each detected face gets its own greeting counter, shown underneath the face
+- The total daily greeting count is displayed in the top-right corner of the window
+- Individual counters only increment when a greeting is actually played (not during cooldown periods)
+- All counters automatically reset at midnight
+- Data persists between application restarts (stored in data/stats directory)
+- Individual face counts and total count are stored in JSON format for each day (e.g., `stats_20230415.json`)
+- Face identification is based on face position in the frame
 
 ### Custom Voice Greeting
 
@@ -197,7 +212,8 @@ face-rec/
 ├── logs/                  # Log files of face detections
 └── data/
     ├── audio/             # Audio files for language greetings
-    └── custom/            # Custom voice recordings
+    ├── custom/            # Custom voice recordings
+    └── stats/             # Daily face greeting statistics
 ```
 
 ## Technical Details
@@ -207,6 +223,7 @@ This application uses:
 - The espeak software for text-to-speech conversion (for language greetings)
 - sounddevice and soundfile for recording your custom voice greeting
 - Pygame for audio playback
+- JSON for storing daily face greeting statistics
 - All packages are compatible with Python 3.12
 
 These technologies were chosen for their simplicity, reliability, and compatibility with modern Python versions on Linux systems.

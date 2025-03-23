@@ -18,6 +18,7 @@ import pygame
 import random
 import json
 from pathlib import Path
+from collections import defaultdict
 
 # Parse command line arguments
 parser = argparse.ArgumentParser(description='Face Detection Application')
@@ -117,7 +118,12 @@ class FaceDetectionApp:
         
         # Face recognition counter for the day
         self.today = datetime.datetime.now().strftime("%Y%m%d")
-        self.daily_greeting_count = self.load_daily_count()
+        
+        # Individual face greeting counters
+        self.face_greeting_counts = self.load_face_counts()
+        
+        # Total greeting count for the day
+        self.daily_greeting_count = sum(self.face_greeting_counts.values())
         
         # Create greeting sound files for all languages
         self._create_greeting_sounds()
@@ -136,34 +142,46 @@ class FaceDetectionApp:
         
         logger.info("Face Detection App initialized")
         logger.info(f"Daily greeting count so far: {self.daily_greeting_count}")
+        logger.info(f"Individual face counts: {dict(self.face_greeting_counts)}")
     
-    def load_daily_count(self):
-        """Load the daily greeting count from a JSON file"""
+    def load_face_counts(self):
+        """Load the face greeting counts from a JSON file"""
         stats_file = f"data/stats/stats_{self.today}.json"
+        
+        # Initialize with defaultdict for easy counting
+        face_counts = defaultdict(int)
         
         if os.path.exists(stats_file):
             try:
                 with open(stats_file, 'r') as f:
                     stats = json.load(f)
-                    return stats.get('greeting_count', 0)
-            except (json.JSONDecodeError, FileNotFoundError):
-                logger.error(f"Failed to load daily stats. Starting with count 0.")
-                return 0
+                    if 'face_counts' in stats and isinstance(stats['face_counts'], dict):
+                        # Convert string keys back to defaultdict
+                        for face_id, count in stats['face_counts'].items():
+                            face_counts[face_id] = count
+                    logger.info(f"Loaded face counts from {stats_file}")
+            except (json.JSONDecodeError, FileNotFoundError) as e:
+                logger.error(f"Failed to load face stats: {e}. Starting with empty counts.")
         else:
-            logger.info(f"No previous stats for today. Starting with count 0.")
-            return 0
+            logger.info(f"No previous stats for today. Starting with empty counts.")
+        
+        return face_counts
     
-    def save_daily_count(self):
-        """Save the daily greeting count to a JSON file"""
+    def save_face_counts(self):
+        """Save the face greeting counts to a JSON file"""
         stats_file = f"data/stats/stats_{self.today}.json"
         
         try:
-            stats = {'greeting_count': self.daily_greeting_count}
+            # Convert defaultdict to regular dict for JSON serialization
+            stats = {
+                'greeting_count': self.daily_greeting_count,
+                'face_counts': dict(self.face_greeting_counts)
+            }
             with open(stats_file, 'w') as f:
                 json.dump(stats, f)
-            logger.info(f"Saved daily greeting count: {self.daily_greeting_count}")
+            logger.info(f"Saved face greeting counts to {stats_file}")
         except Exception as e:
-            logger.error(f"Failed to save daily stats: {str(e)}")
+            logger.error(f"Failed to save face stats: {str(e)}")
     
     def init_camera(self, camera_source=None):
         """Initialize camera with various fallback options"""
@@ -273,7 +291,7 @@ class FaceDetectionApp:
                 # Create an empty file so we don't keep trying to create it
                 Path(sound_file).touch()
     
-    def speak(self):
+    def speak(self, face_id):
         """Play a greeting sound"""
         try:
             # Check if music is currently playing
@@ -296,12 +314,17 @@ class FaceDetectionApp:
                 # Update the last global greeting time
                 self.last_global_greeting_time = time.time()
                 
-                # Increment daily greeting counter
-                self.daily_greeting_count += 1
-                logger.info(f"Greeting count for today: {self.daily_greeting_count}")
+                # Increment counter for this specific face
+                self.face_greeting_counts[face_id] += 1
                 
-                # Save the updated count
-                self.save_daily_count()
+                # Update total daily count
+                self.daily_greeting_count = sum(self.face_greeting_counts.values())
+                
+                logger.info(f"Face {face_id} greeted {self.face_greeting_counts[face_id]} times today")
+                logger.info(f"Total greeting count for today: {self.daily_greeting_count}")
+                
+                # Save the updated counts
+                self.save_face_counts()
                 
                 return True
         except Exception as e:
@@ -338,8 +361,8 @@ class FaceDetectionApp:
                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
         
         # Draw the daily greeting count at the top of the frame
-        cv2.putText(frame, f"Faces Greeted Today: {self.daily_greeting_count}", 
-                  (frame.shape[1] - 300, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+        cv2.putText(frame, f"Total Faces Greeted Today: {self.daily_greeting_count}", 
+                  (frame.shape[1] - 350, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
         
         # Process detected faces
         for (x, y, w, h) in faces:
@@ -348,6 +371,13 @@ class FaceDetectionApp:
             
             # Create a simple face ID based on location (for cooldown purposes)
             face_id = f"{x}_{y}_{w}_{h}"
+            
+            # Get individual greeting count for this face
+            face_greeting_count = self.face_greeting_counts.get(face_id, 0)
+            
+            # Display the number of times this face has been greeted
+            cv2.putText(frame, f"Greeted: {face_greeting_count}", (x, y+h+40), 
+                      cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 2)
             
             # Log the detection
             logger.info(f"Face detected at coordinates: x={x}, y={y}, width={w}, height={h}")
@@ -366,7 +396,7 @@ class FaceDetectionApp:
                 
             if face_cooldown_passed and not global_cooldown_active:
                 # Only update the face_id timestamp if a greeting was actually played
-                if self.speak():
+                if self.speak(face_id):
                     self.last_greeting_time[face_id] = current_time
                     
                     # Display the greeting text on the frame
@@ -388,7 +418,7 @@ class FaceDetectionApp:
     def run(self):
         """Main application loop"""
         logger.info("Starting face detection loop")
-        logger.info(f"Starting with {self.daily_greeting_count} faces greeted today")
+        logger.info(f"Starting with {self.daily_greeting_count} total faces greeted today")
         
         try:
             while True:
@@ -397,8 +427,9 @@ class FaceDetectionApp:
                 if current_date != self.today:
                     logger.info(f"New day detected. Resetting counter from {self.daily_greeting_count} to 0")
                     self.today = current_date
+                    self.face_greeting_counts = defaultdict(int)
                     self.daily_greeting_count = 0
-                    self.save_daily_count()
+                    self.save_face_counts()
                 
                 # Check if camera is opened
                 if not self.camera.isOpened():
@@ -449,7 +480,7 @@ class FaceDetectionApp:
             logger.error(f"Error in main loop: {str(e)}")
         finally:
             # Save the final count before closing
-            self.save_daily_count()
+            self.save_face_counts()
             
             # Release resources
             if self.camera is not None:
