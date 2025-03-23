@@ -236,3 +236,116 @@ If you encounter problems during installation:
 ## License
 
 MIT 
+
+# Face Recognition with Custom Voice
+
+This application captures video from your camera, performs face detection, and plays voice messages when faces are detected.
+
+## Features
+
+- Real-time face detection using OpenCV
+- Plays customizable voice greetings when faces are detected
+- Record your own voice messages to personalize greetings
+- Supports random greetings in multiple languages
+- Logs face detection events
+
+## Installation
+
+1. Clone this repository
+2. Install the required dependencies:
+
+```
+pip install -r requirements.txt
+```
+
+### PyAudio Installation Notes
+
+PyAudio might require additional system dependencies:
+
+- **Windows**: Should install directly from pip
+- **macOS**: May need `portaudio` - install with `brew install portaudio`
+- **Linux**: May need `portaudio19-dev` and `python-all-dev`
+  - Ubuntu/Debian: `sudo apt-get install portaudio19-dev python-all-dev`
+
+## Usage
+
+### Running the Face Detection App
+
+Basic usage:
+
+```
+python main.py
+```
+
+With specific camera (if you have multiple cameras):
+
+```
+python main.py --camera=0
+```
+
+Using a custom voice recording:
+
+```
+python main.py --custom-voice=YOUR_NAME
+```
+
+### Recording Your Voice
+
+To record your own voice for use with the face detection system:
+
+```
+python record_voice.py --record --name=YOUR_NAME
+```
+
+For example, to record a voice sample named "john":
+
+```
+python record_voice.py --record --name=john
+```
+
+Customize recording duration (in seconds):
+
+```
+python record_voice.py --record --name=YOUR_NAME --duration=5
+```
+
+### Listing Available Options
+
+List available cameras:
+
+```
+python main.py --list-cameras
+```
+
+List available voice recordings:
+
+```
+python main.py --list-voices
+```
+
+List your custom voice recordings:
+
+```
+python record_voice.py --list
+```
+
+## Controls
+
+When the application is running:
+- Press 'q' to quit
+
+## Logs
+
+Detection events are logged in the `logs` directory with daily log files.
+
+## Troubleshooting
+
+If you encounter issues with camera detection:
+1. Try specifying the camera index explicitly with `--camera=INDEX`
+2. Use `--list-cameras` to see available cameras
+3. Check the logs for error messages
+
+For audio issues:
+1. Ensure PyAudio is properly installed
+2. Try recording a new voice sample
+3. Check if your system can play audio through pygame 

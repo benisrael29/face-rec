@@ -22,6 +22,8 @@ from pathlib import Path
 parser = argparse.ArgumentParser(description='Face Detection Application')
 parser.add_argument('--camera', type=str, default=None, 
                     help='Camera device path (e.g., /dev/video0) or index (e.g., 0, 1)')
+parser.add_argument('--custom-voice', type=str, default=None,
+                    help='Use a custom voice recording instead of random greetings')
 args = parser.parse_args()
 
 # Configure logging
@@ -78,7 +80,21 @@ VOICE_PARAMS = {
 }
 
 class FaceDetectionApp:
-    def __init__(self, camera_source=None):
+    def __init__(self, camera_source=None, custom_voice=None):
+        # Set custom voice if provided
+        self.custom_voice = custom_voice
+        self.custom_voice_file = None
+        
+        if self.custom_voice:
+            custom_voice_path = f"data/audio/custom_{self.custom_voice}.wav"
+            if os.path.exists(custom_voice_path):
+                self.custom_voice_file = custom_voice_path
+                logger.info(f"Using custom voice recording: {custom_voice_path}")
+            else:
+                logger.error(f"Custom voice file not found: {custom_voice_path}")
+                logger.info("To record a custom voice, use: python record_voice.py --record --name=YOUR_NAME")
+                self.custom_voice = None
+        
         # Initialize the camera
         self.camera = None
         self.init_camera(camera_source)
@@ -111,7 +127,10 @@ class FaceDetectionApp:
         
         # Load the default greeting sound
         try:
-            pygame.mixer.music.load(self.greeting_sounds[self.current_language])
+            if self.custom_voice_file:
+                pygame.mixer.music.load(self.custom_voice_file)
+            else:
+                pygame.mixer.music.load(self.greeting_sounds[self.current_language])
         except Exception as e:
             logger.error(f"Failed to load greeting sound: {str(e)}")
         
@@ -226,9 +245,19 @@ class FaceDetectionApp:
                 Path(sound_file).touch()
     
     def speak(self):
-        """Play a greeting sound in a random language"""
+        """Play a greeting sound in a random language or custom voice if available"""
         try:
-            # Select a random language
+            # If using custom voice, play that instead of random language greeting
+            if self.custom_voice_file:
+                # Load and play the custom voice recording
+                pygame.mixer.music.load(self.custom_voice_file)
+                pygame.mixer.music.play()
+                logger.info(f"Played custom voice recording: {self.custom_voice_file}")
+                # Update the last global greeting time
+                self.last_global_greeting_time = time.time()
+                return
+                
+            # Select a random language for standard greetings
             self.current_language = random.choice(list(GREETINGS.keys()))
             greeting_file = self.greeting_sounds[self.current_language]
             
@@ -298,11 +327,18 @@ class FaceDetectionApp:
                 self.last_greeting_time[face_id] = current_time
                 
                 # Display the greeting text on the frame
-                greeting_text = f"{GREETINGS[self.current_language]} ({self.current_language})"
+                if self.custom_voice_file:
+                    greeting_text = f"Playing custom voice: {self.custom_voice}"
+                else:
+                    greeting_text = f"{GREETINGS[self.current_language]} ({self.current_language})"
+                    
                 cv2.putText(frame, greeting_text, (x, y-10), 
                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
                 
-                logger.info(f"Greeting sent in {self.current_language} for detected face")
+                if self.custom_voice_file:
+                    logger.info(f"Custom voice played for detected face")
+                else:
+                    logger.info(f"Greeting sent in {self.current_language} for detected face")
         
         return frame
     
@@ -401,14 +437,46 @@ def list_available_cameras():
     print("Example: python main.py --camera=1")
     print("Example: python main.py --camera=/dev/video0")
 
+def list_custom_voices():
+    """List available custom voice recordings"""
+    audio_dir = Path("data/audio")
+    if not audio_dir.exists():
+        print("No recordings found. Voice sample directory doesn't exist.")
+        return
+    
+    custom_recordings = list(audio_dir.glob("custom_*.wav"))
+    
+    if not custom_recordings:
+        print("No custom voice recordings found.")
+        print("To record your voice, run: python record_voice.py --record --name=YOUR_NAME")
+        return
+    
+    print("\nAvailable custom voice recordings:")
+    for i, recording in enumerate(custom_recordings, 1):
+        name = recording.stem.replace("custom_", "")
+        print(f"{i}. {name}")
+    
+    print("\nTo use a custom voice, run the app with:")
+    print("python main.py --custom-voice=NAME")
+    print("Example: python main.py --custom-voice=john")
+
 if __name__ == "__main__":
     try:
-        if len(os.sys.argv) > 1 and os.sys.argv[1] == "--list-cameras":
-            list_available_cameras()
-        else:
-            app = FaceDetectionApp(args.camera)
-            app.run()
+        if len(os.sys.argv) > 1:
+            if os.sys.argv[1] == "--list-cameras":
+                list_available_cameras()
+                exit(0)
+            elif os.sys.argv[1] == "--list-voices":
+                list_custom_voices()
+                exit(0)
+        
+        app = FaceDetectionApp(args.camera, args.custom_voice)
+        app.run()
     except Exception as e:
         logger.error(f"Failed to start application: {str(e)}")
         print(f"Error: {str(e)}")
-        print("To list available cameras, run: python main.py --list-cameras")
+        print("\nUseful commands:")
+        print("- To list available cameras: python main.py --list-cameras")
+        print("- To list available voice recordings: python main.py --list-voices")
+        print("- To record your voice: python record_voice.py --record --name=YOUR_NAME")
+        print("- To use your voice: python main.py --custom-voice=YOUR_NAME")
