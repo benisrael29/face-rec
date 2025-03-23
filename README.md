@@ -5,7 +5,9 @@ A lightweight Python application that performs real-time face detection using yo
 ## Features
 
 - Real-time face detection using OpenCV
+- Persistent face tracking that maintains face identity even with movement
 - Audio greeting when a face is detected
+- Sequential greetings that play different messages on each encounter with the same face
 - Customizable voice greeting using your own recorded voice
 - Individual face greeting counter that tracks each detected face separately
 - Daily total greeting counter with persistent storage
@@ -118,6 +120,15 @@ python main.py
 
 6. To exit the application, press 'q' while the window is in focus.
 
+### Improved Face Recognition
+
+The application uses a robust face tracking algorithm that can maintain face identity even when people move:
+
+- Each detected face gets a persistent ID that remains consistent across frames
+- The system can track the same face even when it moves, turns, or temporarily leaves the frame
+- Face identity is maintained based on position, size, and movement patterns
+- This allows for accurate per-face greeting counts even with natural movement
+
 ### Face Greeting Counter
 
 The application keeps track of how many times each individual face has been greeted:
@@ -128,7 +139,32 @@ The application keeps track of how many times each individual face has been gree
 - All counters automatically reset at midnight
 - Data persists between application restarts (stored in data/stats directory)
 - Individual face counts and total count are stored in JSON format for each day (e.g., `stats_20230415.json`)
-- Face identification is based on face position in the frame
+
+### Sequential Greetings
+
+The application can now play different greeting messages each time the same face is detected:
+
+```bash
+# Record multiple greetings during setup
+python setup.py
+
+# Run the app with sequential greetings
+python main.py --sequential-greetings
+```
+
+When using the setup script:
+1. You can record a default greeting that plays when no specific encounter greeting exists
+2. You can record numbered encounter greetings (1st, 2nd, 3rd, etc.) that play on those specific encounters
+3. The app tracks how many times each face has been greeted and plays the appropriate message
+4. You can exit the recording process at any time and continue to the application
+
+Example workflow:
+- First time a face is detected: plays "greeting_1.wav" ("Hello, nice to meet you!")
+- Second time: plays "greeting_2.wav" ("Welcome back!")  
+- Third time: plays "greeting_3.wav" ("You again? You must really like this app!")
+- Fourth time and beyond: plays "default_greeting.wav" if no specific greeting exists
+
+This feature is perfect for creating a more personalized and engaging experience with returning users.
 
 ### Custom Voice Greeting
 
@@ -220,6 +256,7 @@ face-rec/
 
 This application uses:
 - OpenCV's Haar cascade classifiers for face detection
+- Custom tracking algorithm to maintain face identity across frames
 - The espeak software for text-to-speech conversion (for language greetings)
 - sounddevice and soundfile for recording your custom voice greeting
 - Pygame for audio playback
