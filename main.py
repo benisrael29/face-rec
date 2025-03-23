@@ -17,6 +17,7 @@ import numpy as np
 import pygame
 import random
 import json
+import math
 from pathlib import Path
 from collections import defaultdict
 
@@ -83,6 +84,44 @@ VOICE_PARAMS = {
     # Other languages use default voice
 }
 
+class TrackedFace:
+    """Class to represent a tracked face across frames"""
+    next_id = 1  # Class variable to assign unique IDs
+    
+    def __init__(self, x, y, w, h):
+        self.id = f"face_{TrackedFace.next_id}"
+        TrackedFace.next_id += 1
+        self.update_position(x, y, w, h)
+        self.frames_missing = 0
+        self.last_greeting_time = 0
+        
+    def update_position(self, x, y, w, h):
+        """Update the face's position"""
+        self.x = x
+        self.y = y
+        self.w = w
+        self.h = h
+        self.centerX = x + w // 2
+        self.centerY = y + h // 2
+        self.frames_missing = 0
+        
+    def distance_to(self, x, y, w, h):
+        """Calculate distance to another face position based on centers"""
+        other_centerX = x + w // 2
+        other_centerY = y + h // 2
+        
+        # Euclidean distance between centers
+        distance = math.sqrt(
+            (self.centerX - other_centerX) ** 2 + 
+            (self.centerY - other_centerY) ** 2
+        )
+        
+        # Also consider size difference as a factor
+        size_diff = abs((self.w * self.h) - (w * h)) / max((self.w * self.h), (w * h))
+        
+        # Weighted combination
+        return distance + (size_diff * 100)  # Weight size difference
+
 class FaceDetectionApp:
     def __init__(self, camera_source=None, use_custom_greeting=False):
         # Initialize the camera
@@ -100,8 +139,12 @@ class FaceDetectionApp:
         if self.face_cascade.empty():
             raise RuntimeError("Failed to load face cascade classifier. Check OpenCV installation.")
         
-        # For tracking faces we've already greeted
-        self.last_greeting_time = {}
+        # Face tracking variables
+        self.tracked_faces = []
+        self.max_missing_frames = 10  # Frames before considering a face gone
+        self.same_face_threshold = 100  # Maximum distance to consider it the same face
+        
+        # Greeting cooldown
         self.greeting_cooldown = 10  # seconds between greetings for the same face
         
         # Global cooldown to prevent rapid greetings for different faces
@@ -333,6 +376,37 @@ class FaceDetectionApp:
         
         return False
     
+    def update_tracked_faces(self, detected_faces):
+        """Update the list of tracked faces based on new detections"""
+        # Increment missing frames count for all current faces
+        for face in self.tracked_faces:
+            face.frames_missing += 1
+        
+        # Process new detections
+        matched_indices = []
+        
+        # For each detected face
+        for x, y, w, h in detected_faces:
+            matched = False
+            
+            # Try to match with existing faces
+            for i, face in enumerate(self.tracked_faces):
+                distance = face.distance_to(x, y, w, h)
+                
+                if distance < self.same_face_threshold:
+                    # Update the existing face position
+                    face.update_position(x, y, w, h)
+                    matched = True
+                    matched_indices.append(i)
+                    break
+            
+            # If no match found, add as a new face
+            if not matched:
+                self.tracked_faces.append(TrackedFace(x, y, w, h))
+        
+        # Remove faces that haven't been seen for a while
+        self.tracked_faces = [face for face in self.tracked_faces if face.frames_missing < self.max_missing_frames]
+    
     def process_frame(self, frame):
         """Process a single frame for face detection"""
         # Convert to grayscale for face detection
@@ -350,6 +424,9 @@ class FaceDetectionApp:
         if len(faces) == 0:
             return frame
         
+        # Update tracked faces based on new detections
+        self.update_tracked_faces(faces)
+        
         # Get current time for cooldown checks
         current_time = time.time()
         
@@ -364,40 +441,41 @@ class FaceDetectionApp:
         cv2.putText(frame, f"Total Faces Greeted Today: {self.daily_greeting_count}", 
                   (frame.shape[1] - 350, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
         
-        # Process detected faces
-        for (x, y, w, h) in faces:
+        # Process tracked faces
+        for face in self.tracked_faces:
+            # Skip faces that are missing in the current frame
+            if face.frames_missing > 0:
+                continue
+                
             # Draw a rectangle around the face
-            cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
-            
-            # Create a simple face ID based on location (for cooldown purposes)
-            face_id = f"{x}_{y}_{w}_{h}"
+            cv2.rectangle(frame, (face.x, face.y), (face.x + face.w, face.y + face.h), (0, 255, 0), 2)
             
             # Get individual greeting count for this face
-            face_greeting_count = self.face_greeting_counts.get(face_id, 0)
+            face_greeting_count = self.face_greeting_counts.get(face.id, 0)
+            
+            # Display the persistent face ID and greeting count
+            cv2.putText(frame, f"ID: {face.id}", (face.x, face.y - 30), 
+                      cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 2)
             
             # Display the number of times this face has been greeted
-            cv2.putText(frame, f"Greeted: {face_greeting_count}", (x, y+h+40), 
+            cv2.putText(frame, f"Greeted: {face_greeting_count}", (face.x, face.y + face.h + 30), 
                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 2)
             
             # Log the detection
-            logger.info(f"Face detected at coordinates: x={x}, y={y}, width={w}, height={h}")
+            logger.info(f"Face {face.id} detected at coordinates: x={face.x}, y={face.y}, w={face.w}, h={face.h}")
             
-            # Show time remaining in cooldown if applicable
-            if face_id in self.last_greeting_time:
-                time_since_greeting = current_time - self.last_greeting_time[face_id]
-                if time_since_greeting < self.greeting_cooldown:
-                    cooldown_remaining = round(self.greeting_cooldown - time_since_greeting)
-                    cv2.putText(frame, f"Cooldown: {cooldown_remaining}s", (x, y+h+20), 
-                              cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
+            # Check if face is on cooldown
+            cooldown_active = (current_time - face.last_greeting_time) < self.greeting_cooldown
+            if cooldown_active:
+                cooldown_remaining = round(self.greeting_cooldown - (current_time - face.last_greeting_time))
+                cv2.putText(frame, f"Cooldown: {cooldown_remaining}s", (face.x, face.y + face.h + 50), 
+                          cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
             
             # Check if we should greet this face (based on both face-specific and global cooldowns)
-            face_cooldown_passed = face_id not in self.last_greeting_time or \
-                (current_time - self.last_greeting_time[face_id]) > self.greeting_cooldown
-                
-            if face_cooldown_passed and not global_cooldown_active:
-                # Only update the face_id timestamp if a greeting was actually played
-                if self.speak(face_id):
-                    self.last_greeting_time[face_id] = current_time
+            if not cooldown_active and not global_cooldown_active:
+                # Only update the face cooldown if a greeting was actually played
+                if self.speak(face.id):
+                    face.last_greeting_time = current_time
                     
                     # Display the greeting text on the frame
                     if self.use_custom_greeting and os.path.exists(self.custom_greeting_file):
@@ -405,13 +483,13 @@ class FaceDetectionApp:
                     else:
                         greeting_text = f"{GREETINGS[self.current_language]} ({self.current_language})"
                     
-                    cv2.putText(frame, greeting_text, (x, y-10), 
+                    cv2.putText(frame, greeting_text, (face.x, face.y - 10), 
                                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
                     
                     if self.use_custom_greeting:
-                        logger.info("Custom greeting played for detected face")
+                        logger.info(f"Custom greeting played for face {face.id}")
                     else:
-                        logger.info(f"Greeting sent in {self.current_language} for detected face")
+                        logger.info(f"Greeting sent in {self.current_language} for face {face.id}")
         
         return frame
     
@@ -429,6 +507,9 @@ class FaceDetectionApp:
                     self.today = current_date
                     self.face_greeting_counts = defaultdict(int)
                     self.daily_greeting_count = 0
+                    # Reset the TrackedFace ID counter
+                    TrackedFace.next_id = 1
+                    self.tracked_faces = []
                     self.save_face_counts()
                 
                 # Check if camera is opened
