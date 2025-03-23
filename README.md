@@ -7,6 +7,7 @@ A lightweight Python application that performs real-time face detection using yo
 - Real-time face detection using OpenCV
 - Audio greeting when a face is detected
 - Customizable voice greeting using your own recorded voice
+- Daily face greeting counter with persistent storage
 - Logging of all face detections to file
 - Cooldown system to prevent repeated greetings
 - Simple visualization with bounding boxes
@@ -126,7 +127,7 @@ python setup.py
 python main.py --custom-greeting
 ```
 
-When you run the setup script, you'll be prompted to record a short greeting (3 seconds). 
+When you run the setup script, you'll be prompted to record a short greeting (5 seconds). 
 This greeting will be saved and can be used when running the application with the `--custom-greeting` flag.
 
 ### Using with Specific Camera Devices

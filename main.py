@@ -16,6 +16,7 @@ import argparse
 import numpy as np
 import pygame
 import random
+import json
 from pathlib import Path
 
 # Parse command line arguments
@@ -41,6 +42,7 @@ logger = logging.getLogger(__name__)
 # Ensure the sounds directory exists and create the audio folder if it doesn't
 os.makedirs('data/audio', exist_ok=True)
 os.makedirs('data/custom', exist_ok=True)
+os.makedirs('data/stats', exist_ok=True)  # Directory for tracking statistics
 
 # Initialize pygame mixer for audio
 pygame.mixer.init()
@@ -113,6 +115,10 @@ class FaceDetectionApp:
         self.greeting_sounds = {}
         self.current_language = "English"
         
+        # Face recognition counter for the day
+        self.today = datetime.datetime.now().strftime("%Y%m%d")
+        self.daily_greeting_count = self.load_daily_count()
+        
         # Create greeting sound files for all languages
         self._create_greeting_sounds()
         
@@ -129,6 +135,35 @@ class FaceDetectionApp:
             logger.error(f"Failed to load greeting sound: {str(e)}")
         
         logger.info("Face Detection App initialized")
+        logger.info(f"Daily greeting count so far: {self.daily_greeting_count}")
+    
+    def load_daily_count(self):
+        """Load the daily greeting count from a JSON file"""
+        stats_file = f"data/stats/stats_{self.today}.json"
+        
+        if os.path.exists(stats_file):
+            try:
+                with open(stats_file, 'r') as f:
+                    stats = json.load(f)
+                    return stats.get('greeting_count', 0)
+            except (json.JSONDecodeError, FileNotFoundError):
+                logger.error(f"Failed to load daily stats. Starting with count 0.")
+                return 0
+        else:
+            logger.info(f"No previous stats for today. Starting with count 0.")
+            return 0
+    
+    def save_daily_count(self):
+        """Save the daily greeting count to a JSON file"""
+        stats_file = f"data/stats/stats_{self.today}.json"
+        
+        try:
+            stats = {'greeting_count': self.daily_greeting_count}
+            with open(stats_file, 'w') as f:
+                json.dump(stats, f)
+            logger.info(f"Saved daily greeting count: {self.daily_greeting_count}")
+        except Exception as e:
+            logger.error(f"Failed to save daily stats: {str(e)}")
     
     def init_camera(self, camera_source=None):
         """Initialize camera with various fallback options"""
@@ -260,8 +295,20 @@ class FaceDetectionApp:
                 
                 # Update the last global greeting time
                 self.last_global_greeting_time = time.time()
+                
+                # Increment daily greeting counter
+                self.daily_greeting_count += 1
+                logger.info(f"Greeting count for today: {self.daily_greeting_count}")
+                
+                # Save the updated count
+                self.save_daily_count()
+                
+                return True
         except Exception as e:
             logger.error(f"Failed to play sound: {str(e)}")
+            return False
+        
+        return False
     
     def process_frame(self, frame):
         """Process a single frame for face detection"""
@@ -290,6 +337,10 @@ class FaceDetectionApp:
             cv2.putText(frame, "Cooldown active", (10, 30), 
                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
         
+        # Draw the daily greeting count at the top of the frame
+        cv2.putText(frame, f"Faces Greeted Today: {self.daily_greeting_count}", 
+                  (frame.shape[1] - 300, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+        
         # Process detected faces
         for (x, y, w, h) in faces:
             # Draw a rectangle around the face
@@ -314,31 +365,41 @@ class FaceDetectionApp:
                 (current_time - self.last_greeting_time[face_id]) > self.greeting_cooldown
                 
             if face_cooldown_passed and not global_cooldown_active:
-                self.speak()
-                self.last_greeting_time[face_id] = current_time
-                
-                # Display the greeting text on the frame
-                if self.use_custom_greeting and os.path.exists(self.custom_greeting_file):
-                    greeting_text = "Custom Greeting"
-                else:
-                    greeting_text = f"{GREETINGS[self.current_language]} ({self.current_language})"
-                
-                cv2.putText(frame, greeting_text, (x, y-10), 
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
-                
-                if self.use_custom_greeting:
-                    logger.info("Custom greeting played for detected face")
-                else:
-                    logger.info(f"Greeting sent in {self.current_language} for detected face")
+                # Only update the face_id timestamp if a greeting was actually played
+                if self.speak():
+                    self.last_greeting_time[face_id] = current_time
+                    
+                    # Display the greeting text on the frame
+                    if self.use_custom_greeting and os.path.exists(self.custom_greeting_file):
+                        greeting_text = "Custom Greeting"
+                    else:
+                        greeting_text = f"{GREETINGS[self.current_language]} ({self.current_language})"
+                    
+                    cv2.putText(frame, greeting_text, (x, y-10), 
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+                    
+                    if self.use_custom_greeting:
+                        logger.info("Custom greeting played for detected face")
+                    else:
+                        logger.info(f"Greeting sent in {self.current_language} for detected face")
         
         return frame
     
     def run(self):
         """Main application loop"""
         logger.info("Starting face detection loop")
+        logger.info(f"Starting with {self.daily_greeting_count} faces greeted today")
         
         try:
             while True:
+                # Check if date has changed - reset counter if needed
+                current_date = datetime.datetime.now().strftime("%Y%m%d")
+                if current_date != self.today:
+                    logger.info(f"New day detected. Resetting counter from {self.daily_greeting_count} to 0")
+                    self.today = current_date
+                    self.daily_greeting_count = 0
+                    self.save_daily_count()
+                
                 # Check if camera is opened
                 if not self.camera.isOpened():
                     logger.error("Camera connection lost. Attempting to reconnect...")
@@ -387,6 +448,9 @@ class FaceDetectionApp:
         except Exception as e:
             logger.error(f"Error in main loop: {str(e)}")
         finally:
+            # Save the final count before closing
+            self.save_daily_count()
+            
             # Release resources
             if self.camera is not None:
                 self.camera.release()
