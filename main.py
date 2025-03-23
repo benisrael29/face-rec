@@ -22,6 +22,8 @@ from pathlib import Path
 parser = argparse.ArgumentParser(description='Face Detection Application')
 parser.add_argument('--camera', type=str, default=None, 
                     help='Camera device path (e.g., /dev/video0) or index (e.g., 0, 1)')
+parser.add_argument('--custom-greeting', action='store_true',
+                    help='Use custom recorded greeting instead of random languages')
 args = parser.parse_args()
 
 # Configure logging
@@ -38,6 +40,7 @@ logger = logging.getLogger(__name__)
 
 # Ensure the sounds directory exists and create the audio folder if it doesn't
 os.makedirs('data/audio', exist_ok=True)
+os.makedirs('data/custom', exist_ok=True)
 
 # Initialize pygame mixer for audio
 pygame.mixer.init()
@@ -78,7 +81,7 @@ VOICE_PARAMS = {
 }
 
 class FaceDetectionApp:
-    def __init__(self, camera_source=None):
+    def __init__(self, camera_source=None, use_custom_greeting=False):
         # Initialize the camera
         self.camera = None
         self.init_camera(camera_source)
@@ -102,6 +105,10 @@ class FaceDetectionApp:
         self.last_global_greeting_time = 0
         self.global_greeting_cooldown = 3  # seconds between any greetings
         
+        # Custom greeting option
+        self.use_custom_greeting = use_custom_greeting
+        self.custom_greeting_file = "data/custom/my_greeting.wav"
+        
         # List of available greeting sounds
         self.greeting_sounds = {}
         self.current_language = "English"
@@ -109,9 +116,15 @@ class FaceDetectionApp:
         # Create greeting sound files for all languages
         self._create_greeting_sounds()
         
-        # Load the default greeting sound
+        # Load the default or custom greeting sound
         try:
-            pygame.mixer.music.load(self.greeting_sounds[self.current_language])
+            if self.use_custom_greeting and os.path.exists(self.custom_greeting_file):
+                pygame.mixer.music.load(self.custom_greeting_file)
+                logger.info(f"Using custom greeting from: {self.custom_greeting_file}")
+            else:
+                pygame.mixer.music.load(self.greeting_sounds[self.current_language])
+                if self.use_custom_greeting:
+                    logger.warning("Custom greeting requested but file not found. Using default greetings.")
         except Exception as e:
             logger.error(f"Failed to load greeting sound: {str(e)}")
         
@@ -226,18 +239,25 @@ class FaceDetectionApp:
                 Path(sound_file).touch()
     
     def speak(self):
-        """Play a greeting sound in a random language"""
+        """Play a greeting sound"""
         try:
-            # Select a random language
-            self.current_language = random.choice(list(GREETINGS.keys()))
-            greeting_file = self.greeting_sounds[self.current_language]
-            
             # Check if music is currently playing
             if not pygame.mixer.music.get_busy():
-                # Load and play the greeting in the selected language
-                pygame.mixer.music.load(greeting_file)
-                pygame.mixer.music.play()
-                logger.info(f"Played greeting in {self.current_language}: {GREETINGS[self.current_language]}")
+                if self.use_custom_greeting and os.path.exists(self.custom_greeting_file):
+                    # Use custom greeting
+                    pygame.mixer.music.load(self.custom_greeting_file)
+                    pygame.mixer.music.play()
+                    logger.info("Played custom greeting")
+                else:
+                    # Select a random language
+                    self.current_language = random.choice(list(GREETINGS.keys()))
+                    greeting_file = self.greeting_sounds[self.current_language]
+                    
+                    # Load and play the greeting in the selected language
+                    pygame.mixer.music.load(greeting_file)
+                    pygame.mixer.music.play()
+                    logger.info(f"Played greeting in {self.current_language}: {GREETINGS[self.current_language]}")
+                
                 # Update the last global greeting time
                 self.last_global_greeting_time = time.time()
         except Exception as e:
@@ -298,11 +318,18 @@ class FaceDetectionApp:
                 self.last_greeting_time[face_id] = current_time
                 
                 # Display the greeting text on the frame
-                greeting_text = f"{GREETINGS[self.current_language]} ({self.current_language})"
+                if self.use_custom_greeting and os.path.exists(self.custom_greeting_file):
+                    greeting_text = "Custom Greeting"
+                else:
+                    greeting_text = f"{GREETINGS[self.current_language]} ({self.current_language})"
+                
                 cv2.putText(frame, greeting_text, (x, y-10), 
                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
                 
-                logger.info(f"Greeting sent in {self.current_language} for detected face")
+                if self.use_custom_greeting:
+                    logger.info("Custom greeting played for detected face")
+                else:
+                    logger.info(f"Greeting sent in {self.current_language} for detected face")
         
         return frame
     
@@ -338,6 +365,14 @@ class FaceDetectionApp:
                 
                 # Add instructions to the frame
                 cv2.putText(processed_frame, "Press 'q' to quit", (10, frame.shape[0] - 10),
+                          cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+                
+                # Display mode info
+                if self.use_custom_greeting:
+                    mode_text = "Mode: Custom Greeting"
+                else:
+                    mode_text = "Mode: Random Languages"
+                cv2.putText(processed_frame, mode_text, (10, 20),
                           cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
                 
                 # Display the resulting frame
@@ -400,13 +435,23 @@ def list_available_cameras():
     print("python main.py --camera=INDEX_OR_PATH")
     print("Example: python main.py --camera=1")
     print("Example: python main.py --camera=/dev/video0")
+    print("\nTo use your custom greeting:")
+    print("python main.py --custom-greeting")
 
 if __name__ == "__main__":
     try:
         if len(os.sys.argv) > 1 and os.sys.argv[1] == "--list-cameras":
             list_available_cameras()
         else:
-            app = FaceDetectionApp(args.camera)
+            # Check if custom greeting file exists and add a note if using it
+            if args.custom_greeting:
+                custom_file = "data/custom/my_greeting.wav"
+                if os.path.exists(custom_file):
+                    print("Using custom greeting recording")
+                else:
+                    print("Custom greeting file not found. Please run setup.py first to record your greeting.")
+            
+            app = FaceDetectionApp(args.camera, args.custom_greeting)
             app.run()
     except Exception as e:
         logger.error(f"Failed to start application: {str(e)}")

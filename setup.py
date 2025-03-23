@@ -10,6 +10,7 @@ import os
 import sys
 import platform
 import subprocess
+import time
 from pathlib import Path
 
 def print_header(text):
@@ -112,7 +113,8 @@ def create_directories():
     
     directories = [
         "logs",
-        "data/audio"
+        "data/audio",
+        "data/custom"
     ]
     
     for directory in directories:
@@ -124,6 +126,103 @@ def create_directories():
             print(f"Directory already exists: {directory}")
     
     return True
+
+def record_custom_greeting():
+    """Record user's voice for custom greeting"""
+    print_header("Custom Voice Recording")
+    
+    # Check if custom greeting already exists
+    custom_greeting_path = Path("data/custom/my_greeting.wav")
+    
+    if custom_greeting_path.exists():
+        choice = input("Custom greeting already exists. Record a new one? (y/n): ").strip().lower()
+        if choice != 'y':
+            print_success("Using existing custom greeting.")
+            return True
+    
+    print("You will be prompted to record your voice as a custom greeting.")
+    print("Please speak clearly after the countdown.")
+    print("Recording will automatically stop after 3 seconds.")
+    
+    # Check if pyaudio is installed in virtual environment
+    python_path = get_venv_python()
+    
+    try:
+        # Create a temporary Python script for recording
+        temp_script_path = "temp_record.py"
+        with open(temp_script_path, "w") as f:
+            f.write("""
+import pyaudio
+import wave
+import os
+import time
+
+def record_audio(output_file, seconds=3, rate=44100):
+    CHUNK = 1024
+    FORMAT = pyaudio.paInt16
+    CHANNELS = 1
+    
+    p = pyaudio.PyAudio()
+    
+    print("\\nRecording will begin in:")
+    for i in range(3, 0, -1):
+        print(f"{i}...")
+        time.sleep(1)
+    
+    print("Recording... Speak now!")
+    
+    stream = p.open(format=FORMAT,
+                    channels=CHANNELS,
+                    rate=rate,
+                    input=True,
+                    frames_per_buffer=CHUNK)
+    
+    frames = []
+    
+    for i in range(0, int(rate / CHUNK * seconds)):
+        data = stream.read(CHUNK)
+        frames.append(data)
+    
+    print("Recording finished!")
+    
+    stream.stop_stream()
+    stream.close()
+    p.terminate()
+    
+    # Make sure directory exists
+    os.makedirs(os.path.dirname(output_file), exist_ok=True)
+    
+    # Save recording
+    wf = wave.open(output_file, 'wb')
+    wf.setnchannels(CHANNELS)
+    wf.setsampwidth(p.get_sample_size(FORMAT))
+    wf.setframerate(rate)
+    wf.writeframes(b''.join(frames))
+    wf.close()
+    
+    print(f"Audio saved to {output_file}")
+    return True
+
+# Record audio
+record_audio("data/custom/my_greeting.wav")
+""")
+        
+        # Run the recording script
+        if run_command([python_path, temp_script_path]):
+            print_success("Successfully recorded custom greeting.")
+            # Remove temporary script
+            os.remove(temp_script_path)
+            return True
+        else:
+            print_error("Failed to record custom greeting.")
+            # Remove temporary script
+            if os.path.exists(temp_script_path):
+                os.remove(temp_script_path)
+            return False
+            
+    except Exception as e:
+        print_error(f"Error during recording: {e}")
+        return False
 
 def run_application():
     """Run the face detection application"""
@@ -164,6 +263,9 @@ def main():
     # Create directories
     if not create_directories():
         sys.exit(1)
+    
+    # Record custom greeting
+    record_custom_greeting()
     
     # Run the application
     run_application()
