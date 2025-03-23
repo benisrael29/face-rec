@@ -13,7 +13,7 @@ A lightweight Python application that performs real-time face detection using yo
 - Individual face greeting counter that tracks each detected face separately
 - Daily total greeting counter with persistent storage
 - Logging of all face detections to file
-- Cooldown system to prevent repeated greetings
+- One-minute cooldown system to prevent too frequent greetings
 - Simple visualization with bounding boxes
 
 ## Requirements
@@ -138,6 +138,7 @@ The application keeps track of how many times each individual face has been gree
 - Each detected face gets its own greeting counter, shown underneath the face
 - The total daily greeting count is displayed in the top-right corner of the window
 - Individual counters only increment when a greeting is actually played (not during cooldown periods)
+- A one-minute cooldown prevents the same face from being greeted too frequently
 - All counters automatically reset at midnight
 - Data persists between application restarts (stored in data/stats directory)
 - Individual face counts and total count are stored in JSON format for each day (e.g., `stats_20230415.json`)

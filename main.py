@@ -158,7 +158,7 @@ class FaceDetectionApp:
         self.saved_face_photos = set()  # Keep track of faces we've saved photos for
         
         # Greeting cooldown
-        self.greeting_cooldown = 10  # seconds between greetings for the same face
+        self.greeting_cooldown = 60  # seconds between greetings for the same face (increased to 1 minute)
         
         # Global cooldown to prevent rapid greetings for different faces
         self.last_global_greeting_time = 0
