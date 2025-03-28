@@ -129,15 +129,15 @@ def create_directories():
     return True
 
 def record_custom_greetings():
-    """Record user's voice for multiple custom greetings"""
+    """Record user's voice for the custom greeting"""
     print_header("Custom Voice Recording")
     
-    # Directory for multiple greetings
-    greetings_dir = Path("data/custom/greetings")
+    # Directory for custom greeting
+    custom_dir = Path("data/custom")
     
     # Create the directory if it doesn't exist
-    if not greetings_dir.exists():
-        greetings_dir.mkdir(parents=True)
+    if not custom_dir.exists():
+        custom_dir.mkdir(parents=True)
     
     # Function to record greeting
     def record_greeting(filename, prompt):
@@ -191,90 +191,23 @@ record_audio("%s")
             
         return success
     
-    print("You can record multiple greeting messages for different encounters.")
-    print("For example, the first greeting, second greeting, and so on.")
-    print("These will be played in sequence for each face detected.")
-    print("\nOptions:")
-    print("1. Record default greeting (played when no specific encounter greeting exists)")
-    print("2. Record encounter-specific greetings (1st, 2nd, 3rd, etc.)")
-    print("3. Exit recording and continue to application")
+    print("You will record a custom greeting that will be played when a face is detected.")
+    print("The greeting will be played after a 1-second buffer and there will be a 60-second cooldown between greetings.")
     
-    # Record default greeting
-    default_path = "data/custom/default_greeting.wav"
-    default_exists = os.path.exists(default_path)
+    # Path for the custom greeting
+    greeting_path = "data/custom/my_greeting.wav"
+    greeting_exists = os.path.exists(greeting_path)
     
-    if default_exists:
-        print(f"\nDefault greeting already exists at {default_path}")
+    if greeting_exists:
+        replace = input(f"\nCustom greeting already exists at {greeting_path}. Replace it? (y/n): ").strip().lower()
+        if replace != 'y':
+            print_success("Keeping existing greeting. Continuing to application.")
+            return True
+    
+    if record_greeting(greeting_path, "Recording your custom greeting (this will be played when a face is detected):"):
+        print_success("Custom greeting recorded successfully.")
     else:
-        print("\nNo default greeting found.")
-    
-    # Check for existing encounter greetings
-    existing_greetings = []
-    for file in os.listdir(greetings_dir):
-        if file.startswith("greeting_") and file.endswith(".wav"):
-            try:
-                encounter_num = int(file.split("_")[1].split(".")[0])
-                existing_greetings.append(encounter_num)
-            except (ValueError, IndexError):
-                continue
-    
-    if existing_greetings:
-        print(f"\nFound existing greetings for encounters: {sorted(existing_greetings)}")
-    
-    while True:
-        choice = input("\nEnter option (1, 2, 3) or encounter number directly (e.g. 1, 2, 3...): ").strip()
-        
-        if choice == "3":
-            print_success("Exiting recording session. Continuing to application.")
-            break
-            
-        elif choice == "1":
-            # Record default greeting
-            if default_exists:
-                replace = input("Default greeting already exists. Replace it? (y/n): ").strip().lower()
-                if replace != 'y':
-                    continue
-            
-            if record_greeting(default_path, "Recording DEFAULT greeting (played when no specific greeting exists):"):
-                print_success("Default greeting recorded successfully.")
-            else:
-                print_error("Failed to record default greeting.")
-                
-        elif choice == "2" or choice.isdigit():
-            # Record specific encounter greeting
-            if choice == "2":
-                # Let user specify encounter number
-                encounter_num = input("Enter encounter number (e.g. 1 for 1st, 2 for 2nd): ").strip()
-                if not encounter_num.isdigit():
-                    print_error("Invalid encounter number. Please enter a number.")
-                    continue
-            else:
-                encounter_num = choice
-            
-            encounter_path = os.path.join(greetings_dir, f"greeting_{encounter_num}.wav")
-            encounter_exists = os.path.exists(encounter_path)
-            
-            if encounter_exists:
-                replace = input(f"Greeting for encounter #{encounter_num} already exists. Replace it? (y/n): ").strip().lower()
-                if replace != 'y':
-                    continue
-            
-            ordinal = lambda n: "%d%s" % (int(n), {1: "st", 2: "nd", 3: "rd"}.get(int(n) if int(n) < 20 else int(n) % 10, "th"))
-            prompt = f"Recording greeting for the {ordinal(encounter_num)} encounter:"
-            
-            if record_greeting(encounter_path, prompt):
-                print_success(f"Greeting for encounter #{encounter_num} recorded successfully.")
-            else:
-                print_error(f"Failed to record greeting for encounter #{encounter_num}.")
-        
-        else:
-            print_error("Invalid option. Please enter 1, 2, 3 or an encounter number.")
-            
-        # Ask if user wants to record more
-        more = input("\nRecord another greeting? (y/n): ").strip().lower()
-        if more != 'y':
-            print_success("Finished recording greetings. Continuing to application.")
-            break
+        print_error("Failed to record custom greeting.")
     
     return True
 
@@ -290,7 +223,7 @@ def run_application():
     
     # Run the application
     try:
-        subprocess.run([python_path, "main.py", "--sequential-greetings"])
+        subprocess.run([python_path, "main.py"])
         return True
     except Exception as e:
         print_error(f"Failed to run application: {e}")
@@ -329,7 +262,7 @@ def main():
     else:
         print("\nTo run the application later:")
         print("1. Activate your virtual environment")
-        print("2. Run: python main.py --sequential-greetings")
+        print("2. Run: python main.py")
 
 if __name__ == "__main__":
     main() 
