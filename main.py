@@ -41,6 +41,7 @@ logger = logging.getLogger(__name__)
 # Ensure the sounds directory exists and create required folders if they don't exist
 os.makedirs('data/audio', exist_ok=True)
 os.makedirs('data/photos', exist_ok=True)
+os.makedirs('data/custom', exist_ok=True)
 
 # Create photos directory with appropriate permissions
 photos_dir = 'data/photos'
@@ -49,40 +50,6 @@ os.chmod(photos_dir, 0o755)
 
 # Initialize pygame mixer for audio
 pygame.mixer.init()
-
-# Define greetings in different languages
-GREETINGS = {
-    'English': 'Hello',
-    'Spanish': 'Hola',
-    'French': 'Bonjour',
-    'German': 'Hallo',
-    'Italian': 'Ciao',
-    'Portuguese': 'Olá',
-    'Japanese': 'Konnichiwa',
-    'Chinese': 'Ni hao',
-    'Russian': 'Privet',
-    'Arabic': 'Marhaba',
-    'Hindi': 'Namaste',
-    'Korean': 'Annyeong',
-    'Greek': 'Yassou',
-    'Turkish': 'Merhaba',
-    'Swedish': 'Hej',
-    'Polish': 'Cześć',
-    'Dutch': 'Hallo',
-    'Thai': 'Sawadee',
-    'Vietnamese': 'Xin chào',
-    'Hebrew': 'Shalom'
-}
-
-# Voice parameters for more natural sound
-VOICE_PARAMS = {
-    'default': '-s 130 -p 50 -a 100',  # Standard voice
-    'English': '-v en -s 130 -p 50 -a 100',
-    'Spanish': '-v es -s 130 -p 50 -a 100',
-    'French': '-v fr -s 130 -p 50 -a 100',
-    'German': '-v de -s 130 -p 50 -a 100',
-    'Italian': '-v it -s 130 -p 50 -a 100'
-}
 
 class FaceDetectionApp:
     def __init__(self, camera_source=None):
@@ -107,67 +74,38 @@ class FaceDetectionApp:
         self.face_buffer_time = 1.0  # seconds face must be visible before processing
         self.face_detection_start_time = None
         
-        # List of available greeting sounds
-        self.greeting_sounds = {}
-        self.current_language = "English"
+        # Custom greeting file
+        self.custom_greeting_file = "data/custom/my_greeting.wav"
         
-        # Create greeting sound files for all languages
-        self._create_greeting_sounds()
-        
-        # Load the default greeting sound
+        # Load the custom greeting sound
         try:
-            pygame.mixer.music.load(self.greeting_sounds[self.current_language])
+            if os.path.exists(self.custom_greeting_file):
+                pygame.mixer.music.load(self.custom_greeting_file)
+                logger.info(f"Using custom greeting from: {self.custom_greeting_file}")
+            else:
+                logger.warning("Custom greeting file not found. Please run setup.py first to record your greeting.")
         except Exception as e:
             logger.error(f"Failed to load greeting sound: {str(e)}")
         
         logger.info("Face Detection App initialized")
     
-    def _create_greeting_sounds(self):
-        """Create greeting sound files for all languages using espeak (if available)"""
-        for language, greeting in GREETINGS.items():
-            sound_file = f"data/audio/hello_{language.lower()}.wav"
-            self.greeting_sounds[language] = sound_file
-            
-            # Skip if the file already exists
-            if os.path.exists(sound_file):
-                continue
-                
-            try:
-                # Get voice parameters for this language or use default
-                voice_params = VOICE_PARAMS.get(language, VOICE_PARAMS['default'])
-                
-                # Use espeak to create an audio file with better parameters for more natural voice
-                cmd = f"espeak {voice_params} -w {sound_file} \"{greeting}\""
-                subprocess.run(
-                    cmd,
-                    shell=True,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    check=True
-                )
-                logger.info(f"Created greeting sound file for {language}: {sound_file}")
-            except (subprocess.SubprocessError, FileNotFoundError) as e:
-                logger.error(f"Failed to create greeting sound for {language}: {str(e)}")
-                # Create an empty file so we don't keep trying to create it
-                Path(sound_file).touch()
-    
     def speak(self):
-        """Play a greeting sound"""
+        """Play the custom greeting sound"""
         try:
             # Check if music is currently playing
             if not pygame.mixer.music.get_busy():
-                # Select a random language
-                self.current_language = random.choice(list(GREETINGS.keys()))
-                greeting_file = self.greeting_sounds[self.current_language]
-                
-                # Load and play the greeting in the selected language
-                pygame.mixer.music.load(greeting_file)
-                pygame.mixer.music.play()
-                logger.info(f"Played greeting in {self.current_language}: {GREETINGS[self.current_language]}")
-                
-                # Update the last greeting time
-                self.last_greeting_time = time.time()
-                return True
+                if os.path.exists(self.custom_greeting_file):
+                    # Load and play the custom greeting
+                    pygame.mixer.music.load(self.custom_greeting_file)
+                    pygame.mixer.music.play()
+                    logger.info("Played custom greeting")
+                    
+                    # Update the last greeting time
+                    self.last_greeting_time = time.time()
+                    return True
+                else:
+                    logger.warning("Custom greeting file not found")
+                    return False
         except Exception as e:
             logger.error(f"Failed to play sound: {str(e)}")
             return False
